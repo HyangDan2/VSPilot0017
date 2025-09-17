@@ -113,44 +113,49 @@ class MainWindow(QtWidgets.QMainWindow):
         self.chkBoxCorr.setChecked(False)
         grid.addWidget(self.chkBoxCorr, 11, 0, 1, 2)
 
+        # Nyquist guide
+        self.chkNyquist = QtWidgets.QCheckBox("Show Nyquist limit")
+        self.chkNyquist.setChecked(True)
+        grid.addWidget(self.chkNyquist, 12, 0, 1, 2)
+
         # MTF unit / x limits / x scale
-        grid.addWidget(QtWidgets.QLabel("MTF X unit"), 12, 0)
+        grid.addWidget(QtWidgets.QLabel("MTF X unit"), 13, 0)
         self.comboMtfUnit = QtWidgets.QComboBox()
         self.comboMtfUnit.addItems(["cycles/mm", "cycles/pixel"])
-        grid.addWidget(self.comboMtfUnit, 12, 1)
+        grid.addWidget(self.comboMtfUnit, 13, 1)
 
-        grid.addWidget(QtWidgets.QLabel("MTF X min (display)"), 13, 0)
+        grid.addWidget(QtWidgets.QLabel("MTF X min (display)"), 14, 0)
         self.spinMtfXMin = QtWidgets.QDoubleSpinBox()
         self.spinMtfXMin.setDecimals(3); self.spinMtfXMin.setRange(0.0, 1e6)
         self.spinMtfXMin.setSingleStep(1.0); self.spinMtfXMin.setValue(0.0)
-        grid.addWidget(self.spinMtfXMin, 13, 1)
+        grid.addWidget(self.spinMtfXMin, 14, 1)
 
-        grid.addWidget(QtWidgets.QLabel("MTF X max (display)"), 14, 0)
+        grid.addWidget(QtWidgets.QLabel("MTF X max (display)"), 15, 0)
         self.spinMtfXMax = QtWidgets.QDoubleSpinBox()
         self.spinMtfXMax.setDecimals(3); self.spinMtfXMax.setRange(0.0, 1e6)
         self.spinMtfXMax.setSingleStep(1.0); self.spinMtfXMax.setValue(0.0)
-        grid.addWidget(self.spinMtfXMax, 14, 1)
+        grid.addWidget(self.spinMtfXMax, 15, 1)
 
-        grid.addWidget(QtWidgets.QLabel("MTF X scale (×)"), 15, 0)
+        grid.addWidget(QtWidgets.QLabel("MTF X scale (×)"), 16, 0)
         self.spinMtfXScale = QtWidgets.QDoubleSpinBox()
         self.spinMtfXScale.setDecimals(6); self.spinMtfXScale.setRange(1e-6, 1e6)
         self.spinMtfXScale.setSingleStep(0.01); self.spinMtfXScale.setValue(1.0)
-        grid.addWidget(self.spinMtfXScale, 15, 1)
+        grid.addWidget(self.spinMtfXScale, 16, 1)
 
         # Normalize & gamma
         self.chkNormalize = QtWidgets.QCheckBox("Normalize ESF (percentile 1–99 → 0..1)")
         self.chkNormalize.setChecked(True)
-        grid.addWidget(self.chkNormalize, 16, 0, 1, 2)
+        grid.addWidget(self.chkNormalize, 17, 0, 1, 2)
 
         self.chkInvGamma = QtWidgets.QCheckBox("Apply inverse gamma (linearize)")
         self.chkInvGamma.setChecked(False)
-        grid.addWidget(self.chkInvGamma, 17, 0, 1, 2)
+        grid.addWidget(self.chkInvGamma, 18, 0, 1, 2)
 
-        grid.addWidget(QtWidgets.QLabel("Gamma exponent"), 18, 0)
+        grid.addWidget(QtWidgets.QLabel("Gamma exponent"), 19, 0)
         self.spinGamma = QtWidgets.QDoubleSpinBox()
         self.spinGamma.setDecimals(3); self.spinGamma.setRange(0.1, 5.0)
         self.spinGamma.setSingleStep(0.1); self.spinGamma.setValue(2.2)
-        grid.addWidget(self.spinGamma, 18, 1)
+        grid.addWidget(self.spinGamma, 19, 1)
 
         # Compute
         self.btnCompute = QtWidgets.QPushButton("Compute ESF/LSF/MTF (All ROIs)")
@@ -193,7 +198,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.spinEsfDropN, self.comboMtfUnit, self.spinMtfXMin, self.spinMtfXMax,
             self.spinMtfXScale, self.spinPitch, self.spinSigma, self.comboWindow,
             self.comboDeriv, self.chkBoxCorr, self.comboChannel, self.chkNormalize,
-            self.chkInvGamma, self.spinGamma
+            self.chkInvGamma, self.spinGamma, self.chkNyquist
         ]:
             if isinstance(w, QtWidgets.QDoubleSpinBox):
                 w.valueChanged.connect(self.onComputeAll)
@@ -415,9 +420,19 @@ class MainWindow(QtWidgets.QMainWindow):
             line_mtf, = self.mtfDlg.ax.plot(f, mtf, label=f"ROI {label}", linewidth=1.6)
             line_mtf.set_color(qcolor_to_rgba(color))
 
-                        # --- MTF50 / MTF20: 0.50/0.20 교차 X 찾기 + 표시 ---
+            # --- MTF50 / MTF20: 0.50/0.20 교차 X 찾기 + 표시 ---
             f50 = self._first_crossing_x(f, mtf, 0.5)
             f20 = self._first_crossing_x(f, mtf, 0.2)
+
+            # --- Nyquist limit (sensor-level, not per ROI) ---
+            if self.chkNyquist.isChecked():
+                nyq = self._nyquist_value(unit, pixel_pitch, x_scale)
+                if nyq is not None and np.isfinite(nyq):
+                    ax = self.mtfDlg.ax
+                    ax.axvline(nyq, ymin=0.0, ymax=1.0, linestyle="-.", linewidth=1.6, color="#cc3333", alpha=0.9)
+                    ax.text(nyq, 1.02, f"Nyquist = {nyq:.3g}",
+                            transform=ax.get_xaxis_transform(), rotation=90,
+                            va="bottom", ha="center", fontsize=8, color="#cc3333", clip_on=False)
 
             ax = self.mtfDlg.ax
             roi_color = qcolor_to_rgba(color)
@@ -530,3 +545,17 @@ class MainWindow(QtWidgets.QMainWindow):
             return x1
         t = (thresh - y0) / (y1 - y0)
         return x0 + t * (x1 - x0)
+
+    @staticmethod
+    def _nyquist_value(unit: str, pixel_pitch_mm: float, x_scale: float) -> float:
+        """
+        Nyquist frequency with unit & x-scale applied.
+        - cycles/pixel: 0.5 * x_scale
+        - cycles/mm   : (1 / (2 * pixel_pitch_mm)) * x_scale
+        """
+        if pixel_pitch_mm <= 0:
+            return None
+        if unit == "cycles/pixel":
+            return 0.5 * x_scale
+        # cycles/mm
+        return (1.0 / (2.0 * pixel_pitch_mm)) * x_scale
