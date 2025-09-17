@@ -415,6 +415,28 @@ class MainWindow(QtWidgets.QMainWindow):
             line_mtf, = self.mtfDlg.ax.plot(f, mtf, label=f"ROI {label}", linewidth=1.6)
             line_mtf.set_color(qcolor_to_rgba(color))
 
+                        # --- MTF50 / MTF20: 0.50/0.20 교차 X 찾기 + 표시 ---
+            f50 = self._first_crossing_x(f, mtf, 0.5)
+            f20 = self._first_crossing_x(f, mtf, 0.2)
+
+            ax = self.mtfDlg.ax
+            roi_color = qcolor_to_rgba(color)
+
+            # 세로선은 플롯 전체 높이로
+            if f50 is not None:
+                ax.axvline(f50, ymin=0.0, ymax=1.0, linestyle=":", linewidth=1.4, color=roi_color, alpha=0.95)
+                # X는 데이터 좌표, Y는 축좌표(위 살짝)로 텍스트 배치
+                ax.text(f50, 1.02, f"R{label} MTF50 = {f50:.3g}",
+                        transform=ax.get_xaxis_transform(), rotation=90,
+                        va="bottom", ha="center", fontsize=8, color=roi_color, clip_on=False)
+
+            if f20 is not None:
+                ax.axvline(f20, ymin=0.0, ymax=1.0, linestyle="--", linewidth=1.2, color=roi_color, alpha=0.95)
+                ax.text(f20, 1.02, f"R{label} MTF20 = {f20:.3g}",
+                        transform=ax.get_xaxis_transform(), rotation=90,
+                        va="bottom", ha="center", fontsize=8, color=roi_color, clip_on=False)
+
+
             last_strip = res["strip"]
 
         # strip image
@@ -480,3 +502,31 @@ class MainWindow(QtWidgets.QMainWindow):
             return
 
         self.statusBar().showMessage(f"Saved CSVs and PNGs to: {out_dir}")
+
+    @staticmethod
+    def _first_crossing_x(x: np.ndarray, y: np.ndarray, thresh: float):
+        """
+        y(x)가 대체로 단조감소라 가정하고 y가 thresh를 '처음'으로 내리는 x 위치를
+        선형보간으로 추정. 교차 없으면 None.
+        """
+        if x.size < 2 or y.size != x.size:
+            return None
+        m = np.isfinite(x) & np.isfinite(y)
+        x = x[m]; y = y[m]
+        if x.size < 2:
+            return None
+
+        below = np.where(y <= thresh)[0]
+        if below.size == 0:
+            return None
+
+        k = below[0]
+        if k == 0:
+            return x[0]
+
+        x0, x1 = x[k-1], x[k]
+        y0, y1 = y[k-1], y[k]
+        if y1 == y0:
+            return x1
+        t = (thresh - y0) / (y1 - y0)
+        return x0 + t * (x1 - x0)
