@@ -4,8 +4,6 @@ A PySide6 GUI tool to measure **ESF/LSF/MTF** from slanted-edge ROIs.
 Implements a robust ESF accumulator (histogram+oversampling) and **sfrmat3-aligned** conveniences (normal direction, tail guard, pixel box sinc, channel choices, etc.).  
 **Press `C`** or click **Save** to export per-ROI CSVs and current ESF/LSF/MTF PNG figures.
 
-https://user-images.example/… (add a short GIF if you want)
-
 ## Features
 - Load image → add **multiple ROIs** (drag or numeric) → **Compute all**.
 - ESF: oversampled histogram, smoothing (Gaussian), optional normalization (1–99 percentile).
